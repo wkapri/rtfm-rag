@@ -4,20 +4,13 @@ from collections.abc import Iterator
 import httpx
 
 from ragapp.config import settings
-
-SYSTEM_PROMPT = (
-    "You are a helpful assistant answering questions using only the provided "
-    "excerpts from instruction manuals. Cite the source filename and page number "
-    "for claims you make. If the excerpts don't contain the answer, say so instead "
-    "of guessing."
-)
+from ragapp.llm.base import SYSTEM_PROMPT, build_user_content
 
 
-class LLMClient:
+class OllamaProvider:
     """Ollama's native /api/chat endpoint (not the OpenAI-compat /v1 one — that
     endpoint silently ignores `keep_alive`, which defeats the point of setting
-    it). If this ever needs to point at a different OpenAI-compatible server,
-    swap this to /v1/chat/completions and drop keep_alive.
+    it).
 
     Keeps one persistent httpx.Client per instance — see Embedder for why.
     """
@@ -30,7 +23,7 @@ class LLMClient:
     def chat_stream(self, user_message: str, context: str) -> Iterator[str]:
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {user_message}"},
+            {"role": "user", "content": build_user_content(user_message, context)},
         ]
         with self._client.stream(
             "POST",

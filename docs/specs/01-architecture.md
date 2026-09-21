@@ -55,16 +55,19 @@ Revisit if perceived latency becomes a priority.
 
 - `Embedder.embed(texts: list[str]) -> list[list[float]]`
 - `VectorStore.upsert_document(...)`, `VectorStore.upsert_chunks(...)`,
-  `VectorStore.search(query_vec, k) -> list[tuple[Chunk, Document]]`
-- `LLMClient.chat_stream(user_message, context) -> Iterator[str]`
+  `VectorStore.search(query_vec, k, document_ids=None) -> list[tuple[Chunk, Document]]`
+- `ingestion.service.ingest_pdf(path, title=None) -> tuple[document_id, chunk_count]`
+  — raises `IngestionError`, safe to call as a library function (unlike `cli.py`'s
+  wrapper, which turns that into `SystemExit` for CLI use).
+- `llm.base.LLMProvider.chat_stream(user_message, context) -> Iterator[str]` — the
+  interface; `llm.factory.create_llm_client()` builds whichever implementation
+  `LLM_PROVIDER` selects (`providers/ollama.py`, `openai_compat.py`, `anthropic.py`).
 
 These interfaces are what let the LLM runtime or vector store change later without
 touching ingestion or the API layer. They're also, as of the rtfm-hub project, a
 de facto external library API — rtfm-hub imports and calls these directly rather than
-going through `api/main.py`'s routes. `VectorStore.search()` and `LLMClient` both have
-pending changes on the roadmap specifically because of that external consumer (a
-document filter, and a pluggable provider interface, respectively) — check
-`../rtfm-hub/docs/specs/01-architecture.md` before changing either signature.
+going through `api/main.py`'s routes. Check `../rtfm-hub/docs/specs/01-architecture.md`
+before changing any of their signatures.
 
 ## Database schema
 

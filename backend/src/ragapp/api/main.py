@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from ragapp.eval.heuristics import extract_citations, is_refusal
-from ragapp.llm.client import LLMClient
+from ragapp.llm.factory import create_llm_client
 from ragapp.retrieval.retriever import Retriever
 from ragapp.retrieval.store import VectorStore, init_schema
 
@@ -25,7 +25,7 @@ app.add_middleware(
 )
 
 retriever = Retriever()
-llm_client = LLMClient()
+llm_client = create_llm_client()
 store = VectorStore()
 
 

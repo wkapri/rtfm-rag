@@ -86,17 +86,31 @@ class VectorStore:
                     ],
                 )
 
-    def search(self, query_embedding: list[float], top_k: int) -> list[tuple[Chunk, Document]]:
+    def search(
+        self,
+        query_embedding: list[float],
+        top_k: int,
+        document_ids: list[str] | None = None,
+    ) -> list[tuple[Chunk, Document]]:
+        # document_ids is None -> search every ingested document (unchanged default
+        # behavior). Pass a list to scope the search, e.g. to one product's manual.
+        filter_sql = "AND c.document_id = ANY(%(document_ids)s::uuid[])" if document_ids else ""
         with get_connection() as conn:
             rows = conn.execute(
-                """
+                f"""
                 SELECT c.id, c.content, c.page_number, c.chunk_index, d.id, d.filename, d.title
                 FROM chunks c
                 JOIN documents d ON d.id = c.document_id
-                ORDER BY c.embedding <=> %s
-                LIMIT %s
+                WHERE true
+                {filter_sql}
+                ORDER BY c.embedding <=> %(query_embedding)s
+                LIMIT %(top_k)s
                 """,
-                (Vector(query_embedding), top_k),
+                {
+                    "document_ids": document_ids,
+                    "query_embedding": Vector(query_embedding),
+                    "top_k": top_k,
+                },
             ).fetchall()
         return [
             (

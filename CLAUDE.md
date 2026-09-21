@@ -15,9 +15,10 @@ A local-first RAG (Retrieval-Augmented Generation) system:
 agent, eventually a Home Assistant add-on) imports `ragapp` directly and shares this
 app's Postgres database rather than calling it over HTTP. Keep that in mind when
 changing `ingestion/`, `retrieval/`, or `llm/`: those modules have a consumer outside
-this repo, even though nothing here imports rtfm-hub back. Two concrete
-consequences tracked in the roadmap: `VectorStore.search()` needs an optional
-document filter, and `LLMClient` needs to support providers other than Ollama.
+this repo, even though nothing here imports rtfm-hub back. Two things already built
+because of that: `VectorStore.search()` takes an optional `document_ids` filter, and
+the chat LLM is a pluggable `LLMProvider` (`llm/factory.py`'s `create_llm_client()`)
+rather than an Ollama-specific class — see the Stack table below.
 
 ## Stack
 
@@ -26,7 +27,7 @@ document filter, and `LLMClient` needs to support providers other than Ollama.
 | Backend/RAG    | Python                                    | ingestion, embedding, retrieval, API |
 | Frontend       | React + TypeScript (Vite)                 | chat UI |
 | Vector store   | PostgreSQL + pgvector                     | run locally via Docker |
-| LLM runtime    | Ollama, native `/api/chat` (not the OpenAI-compat `/v1` route — it silently ignores `keep_alive`) | default model `llama3.2:3b`, swappable via `.env` |
+| LLM runtime    | Pluggable via `LLM_PROVIDER` env var: `ollama` (default, native `/api/chat` — not the OpenAI-compat `/v1` route, which silently ignores `keep_alive`), `openai` (OpenAI or any OpenAI-compatible endpoint), or `anthropic` | default provider `ollama`, model `llama3.2:3b`, all swappable via `.env` |
 | API            | FastAPI (Python)                          | serves frontend + does retrieval/generation orchestration |
 
 Node.js is only required for the frontend (npm, Vite dev server) — the RAG core is pure Python.
@@ -37,9 +38,9 @@ Node.js is only required for the frontend (npm, Vite dev server) — the RAG cor
 rtfm-rag/
   backend/
     src/ragapp/
-      ingestion/      PDF loading, chunking, embedding
+      ingestion/      PDF loading, chunking, embedding, service.py (importable ingest_pdf())
       retrieval/      pgvector store + retriever
-      llm/            LLM client (Ollama native /api/chat)
+      llm/            base.py (LLMProvider interface), factory.py, providers/ (ollama, openai_compat, anthropic)
       eval/           Citation/refusal heuristics, Recall@K/MRR/etc., CLI eval runner
       api/            FastAPI app (chat, feedback, stats/logs, documents)
     eval/             questions.yaml (labeled eval set) + benchmark_models.py

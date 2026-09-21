@@ -18,20 +18,19 @@
 - [x] Performance pass: connection pooling, persistent HTTP clients, model swap
   (llama3.1 → llama3.2:3b), `keep_alive`, IPv4 host fix, full GPU offload via
   `num_ctx`. Retrieval 3-4s → ~200ms, generation 17-30s → 5-8s.
+- [x] **Needed by rtfm-hub**: `VectorStore.search()` takes an optional
+  `document_ids` filter; ingestion factored out of `cli.py` into
+  `ingestion/service.py`'s `ingest_pdf()` (raises `IngestionError`, not
+  `SystemExit` — safe to call as a library).
+- [x] **Needed by rtfm-hub**: pluggable LLM provider. `ragapp.llm.base.LLMProvider`
+  is the interface (`chat_stream(user_message, context) -> Iterator[str]`);
+  `providers/ollama.py`, `providers/openai_compat.py`, `providers/anthropic.py`
+  implement it; `llm/factory.py`'s `create_llm_client()` builds whichever
+  `LLM_PROVIDER` env var says (default `ollama`). "Bring your own LLM" is now a
+  config choice, not a rewrite, for both this app and rtfm-hub.
 
 ## Phase 2 — polish
 
-- [ ] **Needed by rtfm-hub** (see `../rtfm-hub/docs/specs/05-roadmap.md` —
-  consumed as a *library*, not an HTTP API, so these are function-signature changes,
-  not new routes): add an optional `document_ids` filter to
-  `VectorStore.search()`, and factor ingestion out of `cli.py` into a plain
-  importable function (currently CLI-only, `raise SystemExit`s on bad input — needs
-  to raise proper exceptions to be usable as a library call).
-- [ ] **Needed by rtfm-hub**: pluggable LLM provider — `LLMClient` is currently
-  Ollama-specific (native `/api/chat`, `keep_alive`, `num_ctx` options that don't
-  generalize). Needs an interface with Ollama as the default implementation and
-  OpenAI-compatible/Anthropic as swappable alternatives, so "bring your own LLM"
-  is a config choice for both this app and rtfm-hub, not a rewrite.
 - [ ] Ingest multiple manuals, verify retrieval quality across documents.
 - [ ] Basic auth if exposed beyond localhost.
 - [ ] Fill out `backend/eval/questions.yaml` with a real labeled question set

@@ -19,16 +19,20 @@ class Retriever:
         self.store = store or VectorStore()
         self.embedder = embedder or Embedder()
 
-    def retrieve(self, query: str, top_k: int | None = None) -> list[tuple[Chunk, Document]]:
-        return self.retrieve_with_timing(query, top_k).results
+    def retrieve(
+        self, query: str, top_k: int | None = None, document_ids: list[str] | None = None
+    ) -> list[tuple[Chunk, Document]]:
+        return self.retrieve_with_timing(query, top_k, document_ids).results
 
-    def retrieve_with_timing(self, query: str, top_k: int | None = None) -> RetrievalResult:
+    def retrieve_with_timing(
+        self, query: str, top_k: int | None = None, document_ids: list[str] | None = None
+    ) -> RetrievalResult:
         embed_start = time.monotonic()
         query_embedding = self.embedder.embed([query])[0]
         embed_latency_ms = int((time.monotonic() - embed_start) * 1000)
 
         search_start = time.monotonic()
-        results = self.store.search(query_embedding, top_k or settings.retrieval_top_k)
+        results = self.store.search(query_embedding, top_k or settings.retrieval_top_k, document_ids)
         search_latency_ms = int((time.monotonic() - search_start) * 1000)
 
         return RetrievalResult(

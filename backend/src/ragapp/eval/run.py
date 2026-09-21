@@ -10,7 +10,7 @@ from ragapp.eval.metrics import (
     recall_at_k,
     reciprocal_rank,
 )
-from ragapp.llm.client import LLMClient
+from ragapp.llm.factory import create_llm_client
 from ragapp.retrieval.retriever import Retriever
 
 
@@ -21,7 +21,7 @@ def run_eval(dataset_path: Path, top_k: int, with_generation: bool) -> None:
         return
 
     retriever = Retriever()
-    llm_client = LLMClient() if with_generation else None
+    llm_client = create_llm_client() if with_generation else None
 
     recalls, precisions, rrs = [], [], []
     citation_scores, utilizations, refusals = [], [], []

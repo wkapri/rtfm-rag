@@ -10,7 +10,7 @@ backend/ with the venv active:
 import time
 
 from ragapp.eval.heuristics import extract_citations, is_refusal
-from ragapp.llm.client import LLMClient
+from ragapp.llm.providers.ollama import OllamaProvider
 from ragapp.retrieval.retriever import Retriever
 
 MODELS = ["llama3.1", "llama3.2:3b", "qwen3:4b", "gemma3:4b"]
@@ -32,7 +32,7 @@ def main() -> None:
 
     for model in MODELS:
         print(f"\n{'=' * 70}\n{model}\n{'=' * 70}")
-        client = LLMClient(model=model)
+        client = OllamaProvider(model=model)
 
         latencies = []
         refusals = 0

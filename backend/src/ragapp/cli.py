@@ -3,35 +3,16 @@ from pathlib import Path
 
 from ragapp.config import settings
 from ragapp.eval.run import run_eval
-from ragapp.ingestion.chunker import chunk_pages
-from ragapp.ingestion.embedder import Embedder
-from ragapp.ingestion.pdf_loader import load_pdf_pages
-from ragapp.retrieval.store import VectorStore, content_hash, init_schema
+from ragapp.ingestion.service import IngestionError, ingest_pdf
+from ragapp.retrieval.store import VectorStore
 
 
 def ingest(path: Path, title: str | None) -> None:
-    init_schema()
-    pages = load_pdf_pages(path)
-    full_text = "\n".join(pages)
-    if not full_text.strip():
-        raise SystemExit(f"No extractable text found in {path} (scanned PDF? needs OCR support).")
-
-    store = VectorStore()
-    document_id = store.upsert_document(
-        filename=path.name,
-        title=title or path.stem,
-        full_text_hash=content_hash(full_text),
-    )
-
-    chunks = chunk_pages(pages, settings.chunk_size, settings.chunk_overlap)
-    embedder = Embedder()
-    embeddings = embedder.embed([c.content for c in chunks])
-    for chunk, embedding in zip(chunks, embeddings, strict=True):
-        chunk.embedding = embedding
-        chunk.document_id = document_id
-
-    store.upsert_chunks(document_id, chunks)
-    print(f"Ingested {path.name}: {len(chunks)} chunks (document_id={document_id})")
+    try:
+        document_id, chunk_count = ingest_pdf(path, title)
+    except IngestionError as exc:
+        raise SystemExit(str(exc)) from exc
+    print(f"Ingested {path.name}: {chunk_count} chunks (document_id={document_id})")
 
 
 def list_documents() -> None:
