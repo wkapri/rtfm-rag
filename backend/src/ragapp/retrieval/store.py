@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import psycopg
+from pgvector import Vector
 from pgvector.psycopg import register_vector
 
 from ragapp.config import settings
@@ -22,8 +23,13 @@ def get_connection():
 
 
 def init_schema() -> None:
-    with get_connection() as conn:
+    # Don't use get_connection() here: register_vector() requires the `vector`
+    # type to already exist, but this is what creates it.
+    conn = psycopg.connect(settings.database_url, autocommit=True)
+    try:
         conn.execute(SCHEMA_PATH.read_text())
+    finally:
+        conn.close()
 
 
 def content_hash(text: str) -> str:
@@ -54,7 +60,7 @@ class VectorStore:
                     VALUES (%s, %s, %s, %s, %s)
                     """,
                     [
-                        (document_id, c.page_number, c.chunk_index, c.content, c.embedding)
+                        (document_id, c.page_number, c.chunk_index, c.content, Vector(c.embedding))
                         for c in chunks
                     ],
                 )
@@ -69,7 +75,7 @@ class VectorStore:
                 ORDER BY c.embedding <=> %s
                 LIMIT %s
                 """,
-                (query_embedding, top_k),
+                (Vector(query_embedding), top_k),
             ).fetchall()
         return [
             (
