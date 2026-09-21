@@ -2,7 +2,7 @@
 
 Local RAG (Retrieval-Augmented Generation) system for PDF instruction manuals, with a
 local LLM chatbot. See [CLAUDE.md](CLAUDE.md) for architecture/stack overview and
-[docs/specs/](docs/specs/) for design docs.
+[docs/specs/](docs/specs/) for design docs. [MIT licensed](LICENSE).
 
 ## Prerequisites
 
