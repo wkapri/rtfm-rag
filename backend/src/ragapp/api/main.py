@@ -15,6 +15,11 @@ init_schema()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
+    # Also allow any 192.168.x.x:5173 origin so devices on the same home LAN
+    # (e.g. a phone) can hit the dev server. This is a local-only convenience,
+    # not meant to survive past dev — tighten before this is ever exposed
+    # beyond a trusted home network.
+    allow_origin_regex=r"http://192\.168\.\d{1,3}\.\d{1,3}:5173",
     allow_methods=["*"],
     allow_headers=["*"],
 )
