@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { CloseIcon } from "./Icons";
 
 interface Stats {
   total_queries: number;
@@ -20,17 +21,25 @@ interface LogRow {
   created_at: string;
 }
 
-export default function StatsPanel() {
+interface Props {
+  onClose: () => void;
+}
+
+export default function StatsPanel({ onClose }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [logs, setLogs] = useState<LogRow[]>([]);
+  const [error, setError] = useState(false);
 
   async function refresh() {
-    const [statsRes, logsRes] = await Promise.all([
-      fetch("/api/stats"),
-      fetch("/api/logs?limit=10"),
-    ]);
-    setStats(await statsRes.json());
-    setLogs(await logsRes.json());
+    try {
+      const [statsRes, logsRes] = await Promise.all([fetch("/api/stats"), fetch("/api/logs?limit=10")]);
+      if (!statsRes.ok || !logsRes.ok) throw new Error("request failed");
+      setStats(await statsRes.json());
+      setLogs(await logsRes.json());
+      setError(false);
+    } catch {
+      setError(true);
+    }
   }
 
   useEffect(() => {
@@ -38,62 +47,70 @@ export default function StatsPanel() {
   }, []);
 
   return (
-    <div style={{ border: "1px solid #ccc", padding: 12, marginBottom: 12, fontSize: "0.9em" }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <strong>Stats</strong>
-        <button onClick={refresh}>Refresh</button>
-      </div>
+    <>
+      <div className="drawer-overlay" onClick={onClose} />
+      <div className="drawer">
+        <div className="drawer-header">
+          <h2>Stats</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button className="refresh-button" onClick={refresh}>
+              Refresh
+            </button>
+            <button className="icon-button" onClick={onClose} aria-label="Close">
+              <CloseIcon size={16} />
+            </button>
+          </div>
+        </div>
 
-      {stats && (
-        <table style={{ width: "100%", marginTop: 8, borderCollapse: "collapse" }}>
-          <tbody>
-            <Row label="Total queries" value={stats.total_queries} />
-            <Row label="Avg retrieval latency" value={fmtMs(stats.avg_retrieval_latency_ms)} />
-            <Row label="Avg generation latency" value={fmtMs(stats.avg_generation_latency_ms)} />
-            <Row label="Refusal rate" value={fmtPct(stats.refusal_rate)} />
-            <Row
-              label="Feedback"
-              value={`👍 ${stats.thumbs_up} / 👎 ${stats.thumbs_down} (${stats.feedback_count} of ${stats.total_queries} rated)`}
-            />
-          </tbody>
-        </table>
-      )}
+        <div className="drawer-body">
+          {error && (
+            <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 0 }}>
+              Couldn't reach the backend. Is it running?
+            </p>
+          )}
+          {stats && (
+            <div className="stat-grid">
+              <StatCard label="Total queries" value={String(stats.total_queries)} />
+              <StatCard label="Refusal rate" value={fmtPct(stats.refusal_rate)} />
+              <StatCard label="Avg retrieval" value={fmtMs(stats.avg_retrieval_latency_ms)} />
+              <StatCard label="Avg generation" value={fmtMs(stats.avg_generation_latency_ms)} />
+              <StatCard
+                label="Feedback"
+                value={`👍 ${stats.thumbs_up}  👎 ${stats.thumbs_down}`}
+                sub={`${stats.feedback_count} of ${stats.total_queries} rated`}
+              />
+            </div>
+          )}
 
-      <details style={{ marginTop: 8 }}>
-        <summary>Recent queries ({logs.length})</summary>
-        <table style={{ width: "100%", marginTop: 4, borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left", borderBottom: "1px solid #ddd" }}>
-              <th>Question</th>
-              <th>Refused</th>
-              <th>Retrieval</th>
-              <th>Generation</th>
-              <th>Feedback</th>
-            </tr>
-          </thead>
-          <tbody>
+          <p className="section-label">Recent queries</p>
+          <div className="log-list">
+            {logs.length === 0 && <p style={{ color: "var(--text-faint)", fontSize: 13 }}>No queries yet.</p>}
             {logs.map((log) => (
-              <tr key={log.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td>{log.question}</td>
-                <td>{log.refused ? "yes" : ""}</td>
-                <td>{log.retrieval_latency_ms}ms</td>
-                <td>{log.generation_latency_ms}ms</td>
-                <td>{log.feedback === 1 ? "👍" : log.feedback === -1 ? "👎" : ""}</td>
-              </tr>
+              <div className="log-row" key={log.id}>
+                <p className="log-row-question">{log.question}</p>
+                <div className="log-row-meta">
+                  <span>retrieval {log.retrieval_latency_ms}ms</span>
+                  <span>gen {log.generation_latency_ms}ms</span>
+                  {log.refused && <span style={{ color: "var(--danger)" }}>refused</span>}
+                  {log.feedback === 1 && <span>👍</span>}
+                  {log.feedback === -1 && <span>👎</span>}
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </details>
-    </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
-function Row({ label, value }: { label: string; value: string | number }) {
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <tr>
-      <td style={{ color: "#555", paddingRight: 12 }}>{label}</td>
-      <td>{value}</td>
-    </tr>
+    <div className="stat-card">
+      <p className="stat-card-label">{label}</p>
+      <p className="stat-card-value">{value}</p>
+      {sub && <p className="stat-card-label" style={{ marginTop: 4, textTransform: "none" }}>{sub}</p>}
+    </div>
   );
 }
 

@@ -1,41 +1,37 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import ChatMessage from "./ChatMessage";
 import StatsPanel from "./StatsPanel";
+import { ChartIcon, ManualIcon, SendIcon } from "./Icons";
+import type { ChatResponseBody, Document, Message } from "./types";
 
-interface Source {
-  filename: string;
-  page: number;
-}
-
-interface RetrievedChunk {
-  rank: number;
-  filename: string;
-  page: number;
-  preview: string;
-}
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  sources?: Source[];
-  queryLogId?: string;
-  feedback?: 1 | -1;
-  refused?: boolean;
-  retrievalLatencyMs?: number;
-  embedLatencyMs?: number;
-  searchLatencyMs?: number;
-  generationLatencyMs?: number;
-  retrievedChunks?: RetrievedChunk[];
-}
+const SUGGESTIONS = [
+  "How do I restart the touchscreen?",
+  "What tire pressure should I use?",
+  "How do I fold the mirrors?",
+];
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  async function sendMessage() {
-    if (!input.trim()) return;
-    const question = input;
+  useEffect(() => {
+    fetch("/api/documents")
+      .then((r) => r.json())
+      .then(setDocuments)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, loading]);
+
+  async function sendMessage(text?: string) {
+    const question = (text ?? input).trim();
+    if (!question || loading) return;
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: question }]);
     setLoading(true);
@@ -46,17 +42,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: question }),
       });
-      const data: {
-        answer: string;
-        sources: Source[];
-        query_log_id: string;
-        refused: boolean;
-        retrieval_latency_ms: number;
-        embed_latency_ms: number;
-        search_latency_ms: number;
-        generation_latency_ms: number;
-        retrieved_chunks: RetrievedChunk[];
-      } = await response.json();
+      const data: ChatResponseBody = await response.json();
       setMessages((prev) => [
         ...prev,
         {
@@ -71,6 +57,11 @@ export default function App() {
           generationLatencyMs: data.generation_latency_ms,
           retrievedChunks: data.retrieved_chunks,
         },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Something went wrong reaching the server. Is the backend running?" },
       ]);
     } finally {
       setLoading(false);
@@ -88,88 +79,86 @@ export default function App() {
     });
   }
 
+  const subtitle =
+    documents.length === 0
+      ? "No manuals ingested yet"
+      : documents.length === 1
+        ? documents[0].title.replace(/_/g, " ")
+        : `${documents.length} manuals loaded`;
+
   return (
-    <div style={{ maxWidth: 720, margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h1>rag1 — manual chat</h1>
-        <button onClick={() => setShowStats((s) => !s)}>
-          {showStats ? "Hide stats" : "Show stats"}
+    <div className="app">
+      <header className="header">
+        <div className="header-titles">
+          <h1 className="header-title">rag1</h1>
+          <p className="header-subtitle">{subtitle}</p>
+        </div>
+        <button
+          className={`icon-button ${showStats ? "active" : ""}`}
+          onClick={() => setShowStats((s) => !s)}
+          aria-label="Show stats"
+          title="Stats"
+        >
+          <ChartIcon size={17} />
+        </button>
+      </header>
+
+      {showStats && <StatsPanel onClose={() => setShowStats(false)} />}
+
+      {messages.length === 0 ? (
+        <div className="empty-state">
+          <ManualIcon size={44} />
+          <div>
+            <p className="empty-state-title">Ask about your manuals</p>
+            <p className="empty-state-hint">
+              Answers are grounded in the PDFs you've ingested, with page citations — try one of these:
+            </p>
+          </div>
+          <div className="suggestion-row">
+            {SUGGESTIONS.map((s) => (
+              <button key={s} className="suggestion-chip" onClick={() => sendMessage(s)}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="chat-scroll" ref={scrollRef}>
+          {messages.map((m, i) => (
+            <ChatMessage key={i} message={m} onFeedback={(fb) => sendFeedback(i, fb)} />
+          ))}
+          {loading && (
+            <div className="message-row assistant">
+              <div className="message-col">
+                <div className="bubble typing-indicator">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="input-bar">
+        <textarea
+          className="input-field"
+          rows={1}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+          placeholder="Ask about your manuals…"
+        />
+        <button className="send-button" onClick={() => sendMessage()} disabled={loading || !input.trim()}>
+          <SendIcon />
         </button>
       </div>
-
-      {showStats && <StatsPanel />}
-
-      <div style={{ minHeight: 300, border: "1px solid #ccc", padding: 12, marginBottom: 12 }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ marginBottom: 12 }}>
-            <p style={{ margin: 0 }}>
-              <strong>{m.role === "user" ? "You" : "Assistant"}:</strong> {m.content}
-              {m.refused && (
-                <span style={{ marginLeft: 6, fontSize: "0.8em", color: "#a55" }}>(refused)</span>
-              )}
-            </p>
-
-            {m.sources && m.sources.length > 0 && (
-              <details style={{ marginTop: 4, fontSize: "0.9em", color: "#555" }}>
-                <summary>Sources ({m.sources.length})</summary>
-                <ul style={{ margin: "4px 0" }}>
-                  {m.sources.map((s, j) => (
-                    <li key={j}>
-                      {s.filename}, page {s.page}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-
-            {m.retrievedChunks && (
-              <details style={{ marginTop: 4, fontSize: "0.85em", color: "#555" }}>
-                <summary>
-                  Details (embed {m.embedLatencyMs}ms + search {m.searchLatencyMs}ms = retrieval{" "}
-                  {m.retrievalLatencyMs}ms, generation {m.generationLatencyMs}ms)
-                </summary>
-                <ul style={{ margin: "4px 0", paddingLeft: 18 }}>
-                  {m.retrievedChunks.map((c) => (
-                    <li key={c.rank}>
-                      #{c.rank + 1} — {c.filename} p.{c.page}: <em>{c.preview}…</em>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-
-            {m.role === "assistant" && m.queryLogId && (
-              <div style={{ marginTop: 4 }}>
-                <button
-                  onClick={() => sendFeedback(i, 1)}
-                  style={{ opacity: m.feedback === 1 ? 1 : 0.4, marginRight: 4 }}
-                  aria-label="Thumbs up"
-                >
-                  👍
-                </button>
-                <button
-                  onClick={() => sendFeedback(i, -1)}
-                  style={{ opacity: m.feedback === -1 ? 1 : 0.4 }}
-                  aria-label="Thumbs down"
-                >
-                  👎
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-        {loading && <p>Thinking…</p>}
-      </div>
-      <input
-        style={{ width: "80%" }}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        placeholder="Ask about your manuals…"
-      />
-      <button onClick={sendMessage} disabled={loading}>
-        Send
-      </button>
     </div>
   );
 }
