@@ -33,25 +33,45 @@
 
 1. Frontend sends a user question to `POST /api/chat`.
 2. Backend embeds the question, does a similarity search against pgvector
-   (`retrieval/retriever.py`) to get top-k relevant chunks.
+   (`retrieval/retriever.py`) to get top-k relevant chunks, with embed/search
+   timed separately (`Retriever.retrieve_with_timing`).
 3. Backend builds a prompt (system instructions + retrieved chunks + question)
-   and sends it to the local LLM via `llm/client.py`.
-4. Response streamed back to frontend, with source citations (filename + page)
-   attached from the retrieved chunks.
+   and sends it to the local LLM via `llm/client.py` (Ollama's native `/api/chat`,
+   not the OpenAI-compat `/v1` route — that endpoint silently ignores `keep_alive`).
+4. Full response (not token-streamed to the client — see below) returned as JSON
+   with source citations, refusal flag, and a per-query `query_log_id`.
+5. The full exchange — question, retrieved chunks, citations the answer actually
+   made, latency breakdown, refusal flag — is written to `query_logs`
+   (`retrieval/store.py: log_query`). This backs both live monitoring
+   (`/api/stats`, `/api/logs`) and offline eval — see
+   [06-evaluation.md](06-evaluation.md).
+
+Note: `chat_stream()` in `llm/client.py` streams tokens from Ollama, but the API layer
+currently consumes the full generator before responding (`"".join(...)`) rather than
+streaming to the frontend — the UI shows a typing indicator, not incremental tokens.
+Revisit if perceived latency becomes a priority.
 
 ## Key interfaces (keep these stable as implementations change)
 
 - `Embedder.embed(texts: list[str]) -> list[list[float]]`
-- `VectorStore.upsert(chunks: list[Chunk])`, `VectorStore.search(query_vec, k) -> list[Chunk]`
-- `LLMClient.chat(messages: list[Message], stream: bool) -> ...`
+- `VectorStore.upsert_document(...)`, `VectorStore.upsert_chunks(...)`,
+  `VectorStore.search(query_vec, k) -> list[tuple[Chunk, Document]]`
+- `LLMClient.chat_stream(user_message, context) -> Iterator[str]`
 
 These interfaces are what let the LLM runtime or vector store change later without
 touching ingestion or the API layer.
 
-## Database schema (initial)
+## Database schema
 
-`documents` table: id, filename, title, ingested_at
-`chunks` table: id, document_id (FK), page_number, chunk_index, content, embedding (vector),
+`documents`: id, filename, title, content_hash, ingested_at
+`chunks`: id, document_id (FK), page_number, chunk_index, content, embedding (vector),
   created_at
+`query_logs`: id, question, answer, retrieved_chunks (jsonb), cited_sources (jsonb),
+  refused, retrieval/embed/search/generation_latency_ms, feedback, created_at
 
-pgvector index: HNSW or IVFFlat on `chunks.embedding`, cosine distance.
+pgvector index: HNSW on `chunks.embedding`, cosine distance. Full definitions in
+`backend/src/ragapp/retrieval/schema.sql`.
+
+Connections go through a `psycopg_pool.ConnectionPool` (not one connection per request —
+that was a real perf bug, see git history) with pgvector types registered once per
+pooled connection via the pool's `configure` hook.

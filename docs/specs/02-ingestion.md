@@ -28,5 +28,10 @@ Re-ingesting the same file should not duplicate chunks — key on
 ```
 python -m ragapp.cli ingest <path-to-pdf> [--title "Custom Title"]
 python -m ragapp.cli list                  # list ingested documents
-python -m ragapp.cli remove <document_id>
+python -m ragapp.cli eval [--with-generation]   # see docs/specs/06-evaluation.md
 ```
+
+`remove <document_id>` is not built yet — re-ingesting the same file (same content
+hash) safely upserts rather than duplicating, but there's no way to delete a document
+via the CLI today short of `DELETE FROM documents WHERE id = ...` (cascades to its
+chunks).

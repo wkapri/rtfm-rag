@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ragapp.eval.dataset import EvalQuestion, load_dataset
+from ragapp.eval.dataset import load_dataset
 from ragapp.eval.heuristics import extract_citations, is_refusal
 from ragapp.eval.metrics import (
     PageRef,
