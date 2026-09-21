@@ -14,31 +14,41 @@ SYSTEM_PROMPT = (
 
 
 class LLMClient:
-    """Ollama's OpenAI-compatible chat endpoint. Swap base_url/model to point at
-    any other OpenAI-compatible local server without touching callers."""
+    """Ollama's native /api/chat endpoint (not the OpenAI-compat /v1 one — that
+    endpoint silently ignores `keep_alive`, which defeats the point of setting
+    it). If this ever needs to point at a different OpenAI-compatible server,
+    swap this to /v1/chat/completions and drop keep_alive.
+
+    Keeps one persistent httpx.Client per instance — see Embedder for why.
+    """
 
     def __init__(self, model: str | None = None, host: str | None = None):
         self.model = model or settings.chat_model
         self.host = host or settings.ollama_host
+        self._client = httpx.Client(base_url=self.host, timeout=120)
 
     def chat_stream(self, user_message: str, context: str) -> Iterator[str]:
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {user_message}"},
         ]
-        with httpx.Client(base_url=self.host, timeout=120) as client:
-            with client.stream(
-                "POST",
-                "/v1/chat/completions",
-                json={"model": self.model, "messages": messages, "stream": True},
-            ) as response:
-                response.raise_for_status()
-                for line in response.iter_lines():
-                    if not line.startswith("data: "):
-                        continue
-                    payload = line[len("data: ") :].strip()
-                    if payload == "[DONE]":
-                        break
-                    delta = json.loads(payload)["choices"][0]["delta"].get("content")
-                    if delta:
-                        yield delta
+        with self._client.stream(
+            "POST",
+            "/api/chat",
+            json={
+                "model": self.model,
+                "messages": messages,
+                "stream": True,
+                "keep_alive": settings.ollama_keep_alive,
+            },
+        ) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line.strip():
+                    continue
+                data = json.loads(line)
+                delta = data.get("message", {}).get("content")
+                if delta:
+                    yield delta
+                if data.get("done"):
+                    break

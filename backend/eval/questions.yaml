@@ -1,0 +1,10 @@
+# Labeled eval set for `python -m ragapp.cli eval`.
+#
+# Each entry is one question with the page(s) in the manual that actually
+# answer it. `relevant_pages` should be the smallest set of pages a human
+# would point to as ground truth — used to compute Recall@K / Precision@K /
+# MRR against what the retriever actually returns.
+#
+# - question: "How do I reset the touchscreen?"
+#   document: Tesla_Model_3_Owners_Manual.pdf
+#   relevant_pages: [7]
