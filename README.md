@@ -1,4 +1,4 @@
-# rag1
+# rtfm-rag
 
 Local RAG (Retrieval-Augmented Generation) system for PDF instruction manuals, with a
 local LLM chatbot. See [CLAUDE.md](CLAUDE.md) for architecture/stack overview and
@@ -88,7 +88,7 @@ up/down feedback) to the `query_logs` table. View it via:
 - The **"how this answer was built"** disclosure under each answer — per-query retrieval
   timing and which chunks were used.
 - `GET /api/stats` / `GET /api/logs` directly.
-- SQL, for anything deeper: `docker exec rag1-db-1 psql -U ragapp -d ragapp`
+- SQL, for anything deeper: `docker exec rtfm-rag-db-1 psql -U ragapp -d ragapp`
 
 ## Using it from your phone (same network)
 

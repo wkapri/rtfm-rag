@@ -9,7 +9,7 @@ from ragapp.llm.client import LLMClient
 from ragapp.retrieval.retriever import Retriever
 from ragapp.retrieval.store import VectorStore, init_schema
 
-app = FastAPI(title="rag1")
+app = FastAPI(title="rtfm-rag")
 init_schema()
 
 app.add_middleware(

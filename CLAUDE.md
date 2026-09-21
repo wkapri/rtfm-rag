@@ -1,4 +1,4 @@
-# rag1 — Local RAG for PDF Instruction Manuals
+# rtfm-rag — Local RAG for PDF Instruction Manuals
 
 ## What this is
 
@@ -25,7 +25,7 @@ Node.js is only required for the frontend (npm, Vite dev server) — the RAG cor
 ## Repo layout
 
 ```
-rag1/
+rtfm-rag/
   backend/
     src/ragapp/
       ingestion/      PDF loading, chunking, embedding

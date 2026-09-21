@@ -90,7 +90,7 @@ export default function App() {
     <div className="app">
       <header className="header">
         <div className="header-titles">
-          <h1 className="header-title">rag1</h1>
+          <h1 className="header-title">rtfm-rag</h1>
           <p className="header-subtitle">{subtitle}</p>
         </div>
         <button
