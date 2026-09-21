@@ -22,9 +22,11 @@ class OpenAICompatProvider:
             timeout=120,
         )
 
-    def chat_stream(self, user_message: str, context: str) -> Iterator[str]:
+    def chat_stream(
+        self, user_message: str, context: str, system_prompt: str | None = None
+    ) -> Iterator[str]:
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
             {"role": "user", "content": build_user_content(user_message, context)},
         ]
         with self._client.stream(

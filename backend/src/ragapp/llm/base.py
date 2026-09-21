@@ -17,6 +17,13 @@ class LLMProvider(Protocol):
     """Common interface every chat backend implements — Ollama, OpenAI-compatible,
     Anthropic, whatever comes next. Callers (the API layer, eval harness, rtfm-hub)
     depend only on this, never on a specific provider's constructor or request shape.
+
+    system_prompt defaults to this module's SYSTEM_PROMPT (the RAG manual-Q&A
+    instructions) so existing callers are unaffected, but can be overridden —
+    rtfm-hub uses this for non-RAG tasks like product identification, which have
+    nothing to do with answering from manual excerpts.
     """
 
-    def chat_stream(self, user_message: str, context: str) -> Iterator[str]: ...
+    def chat_stream(
+        self, user_message: str, context: str, system_prompt: str | None = None
+    ) -> Iterator[str]: ...

@@ -28,14 +28,16 @@ class AnthropicProvider:
             timeout=120,
         )
 
-    def chat_stream(self, user_message: str, context: str) -> Iterator[str]:
+    def chat_stream(
+        self, user_message: str, context: str, system_prompt: str | None = None
+    ) -> Iterator[str]:
         with self._client.stream(
             "POST",
             "/messages",
             json={
                 "model": self.model,
                 "max_tokens": self.max_tokens,
-                "system": SYSTEM_PROMPT,
+                "system": system_prompt or SYSTEM_PROMPT,
                 "messages": [{"role": "user", "content": build_user_content(user_message, context)}],
                 "stream": True,
             },
