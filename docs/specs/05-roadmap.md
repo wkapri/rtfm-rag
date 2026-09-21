@@ -21,9 +21,13 @@
 
 ## Phase 2 — polish
 
+- [ ] **Blocking rtfm-hub** (see `../rtfm-hub/docs/specs/05-roadmap.md`): `POST
+  /api/documents` — ingest a PDF via API call, not just CLI. rtfm-hub's discovery
+  agent needs to hand off downloaded manuals programmatically.
+- [ ] **Blocking rtfm-hub**: document-scoped queries — a `document_ids` filter on
+  `POST /api/chat` so a question can be answered from one product's manual
+  specifically, instead of always searching every ingested document.
 - [ ] Ingest multiple manuals, verify retrieval quality across documents.
-- [ ] Document-scoped queries ("only search manual X").
-- [ ] Ingestion via UI upload instead of CLI-only.
 - [ ] Basic auth if exposed beyond localhost.
 - [ ] Fill out `backend/eval/questions.yaml` with a real labeled question set
   (currently just a template) and run Recall@K/MRR for real.
