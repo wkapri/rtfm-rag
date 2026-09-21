@@ -40,6 +40,7 @@ class LLMClient:
                 "messages": messages,
                 "stream": True,
                 "keep_alive": settings.ollama_keep_alive,
+                "options": {"num_ctx": settings.ollama_chat_num_ctx},
             },
         ) as response:
             response.raise_for_status()

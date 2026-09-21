@@ -17,6 +17,13 @@ class Settings(BaseSettings):
     # is 5m; both models here comfortably fit alongside each other in 4GB
     # VRAM, so there's no reason to pay reload cost on every idle gap.
     ollama_keep_alive: str = "30m"
+    # llama3.2:3b's default 4096-token context doesn't leave enough VRAM
+    # headroom (on a 4GB card, alongside nomic-embed-text) to fully offload
+    # to GPU — it runs 80%/20% GPU/CPU split. 2048 is still comfortably
+    # larger than our retrieval context (top_k=5 chunks is ~900 tokens) and
+    # gets 100% GPU offload, ~16% more tokens/sec. Raise this if top_k or
+    # chunk_size grow enough to risk truncating the prompt.
+    ollama_chat_num_ctx: int = 2048
 
     chunk_size: int = 700
     chunk_overlap: int = 100
