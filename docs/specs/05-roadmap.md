@@ -21,12 +21,17 @@
 
 ## Phase 2 — polish
 
-- [ ] **Blocking rtfm-hub** (see `../rtfm-hub/docs/specs/05-roadmap.md`): `POST
-  /api/documents` — ingest a PDF via API call, not just CLI. rtfm-hub's discovery
-  agent needs to hand off downloaded manuals programmatically.
-- [ ] **Blocking rtfm-hub**: document-scoped queries — a `document_ids` filter on
-  `POST /api/chat` so a question can be answered from one product's manual
-  specifically, instead of always searching every ingested document.
+- [ ] **Needed by rtfm-hub** (see `../rtfm-hub/docs/specs/05-roadmap.md` —
+  consumed as a *library*, not an HTTP API, so these are function-signature changes,
+  not new routes): add an optional `document_ids` filter to
+  `VectorStore.search()`, and factor ingestion out of `cli.py` into a plain
+  importable function (currently CLI-only, `raise SystemExit`s on bad input — needs
+  to raise proper exceptions to be usable as a library call).
+- [ ] **Needed by rtfm-hub**: pluggable LLM provider — `LLMClient` is currently
+  Ollama-specific (native `/api/chat`, `keep_alive`, `num_ctx` options that don't
+  generalize). Needs an interface with Ollama as the default implementation and
+  OpenAI-compatible/Anthropic as swappable alternatives, so "bring your own LLM"
+  is a config choice for both this app and rtfm-hub, not a rewrite.
 - [ ] Ingest multiple manuals, verify retrieval quality across documents.
 - [ ] Basic auth if exposed beyond localhost.
 - [ ] Fill out `backend/eval/questions.yaml` with a real labeled question set
@@ -41,5 +46,7 @@
 ## Phase 3 — future / exploratory
 
 - [ ] Independent cloud deployment for demos.
-- [ ] Home Assistant integration (conversation agent / custom intent).
 - [ ] Hybrid search / re-ranking if retrieval quality needs it.
+
+Note: Home Assistant integration is being built as rtfm-hub (a separate repo that
+imports this one as a library), not here — see `../rtfm-hub/docs/specs/`.

@@ -8,7 +8,16 @@ A local-first RAG (Retrieval-Augmented Generation) system:
 - Logs every query (retrieval + generation latency, citations, feedback) for monitoring
   and offline eval — see [docs/specs/06-evaluation.md](docs/specs/06-evaluation.md).
 - Runs entirely on-device for now. Designed so pieces (LLM, vector store) can later
-  move to the cloud independently, or integrate with Home Assistant.
+  move to the cloud independently.
+
+**Also designed to be used as a library, not just a standalone app.**
+[rtfm-hub](../rtfm-hub) (a sibling project — personal inventory + manual-discovery
+agent, eventually a Home Assistant add-on) imports `ragapp` directly and shares this
+app's Postgres database rather than calling it over HTTP. Keep that in mind when
+changing `ingestion/`, `retrieval/`, or `llm/`: those modules have a consumer outside
+this repo, even though nothing here imports rtfm-hub back. Two concrete
+consequences tracked in the roadmap: `VectorStore.search()` needs an optional
+document filter, and `LLMClient` needs to support providers other than Ollama.
 
 ## Stack
 
@@ -45,8 +54,10 @@ rtfm-rag/
 ## Conventions
 
 - Keep ingestion, retrieval, and LLM-client code as separate modules with clear
-  interfaces — the LLM runtime and vector store are both expected to change later
-  (e.g. cloud deployment, Home Assistant integration), so avoid tight coupling.
+  interfaces — the LLM runtime and vector store are both expected to change later,
+  and rtfm-hub imports these modules directly as a library, so avoid tight coupling
+  and avoid anything that only makes sense in the context of this app's own FastAPI
+  routes.
 - Config (DB URL, Ollama host/model, embedding model) lives in env vars — see
   `.env.example`. Never hardcode secrets or local paths.
 - Prefer small, testable functions in `ingestion/` and `retrieval/` over notebook-style

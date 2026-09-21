@@ -59,7 +59,12 @@ Revisit if perceived latency becomes a priority.
 - `LLMClient.chat_stream(user_message, context) -> Iterator[str]`
 
 These interfaces are what let the LLM runtime or vector store change later without
-touching ingestion or the API layer.
+touching ingestion or the API layer. They're also, as of the rtfm-hub project, a
+de facto external library API — rtfm-hub imports and calls these directly rather than
+going through `api/main.py`'s routes. `VectorStore.search()` and `LLMClient` both have
+pending changes on the roadmap specifically because of that external consumer (a
+document filter, and a pluggable provider interface, respectively) — check
+`../rtfm-hub/docs/specs/01-architecture.md` before changing either signature.
 
 ## Database schema
 
