@@ -3,7 +3,14 @@ from collections.abc import Iterator
 
 import httpx
 
-from ragapp.llm.base import SYSTEM_PROMPT, build_user_content
+from ragapp.llm.base import (
+    SYSTEM_PROMPT,
+    AssistantTurn,
+    Message,
+    ToolCall,
+    ToolSpec,
+    build_user_content,
+)
 
 
 class OpenAICompatProvider:
@@ -44,3 +51,52 @@ class OpenAICompatProvider:
                 delta = json.loads(payload)["choices"][0]["delta"].get("content")
                 if delta:
                     yield delta
+
+    def complete_with_tools(
+        self, messages: list[Message], tools: list[ToolSpec], system_prompt: str
+    ) -> AssistantTurn:
+        oai_messages: list[dict] = [{"role": "system", "content": system_prompt}]
+        for m in messages:
+            if m["role"] == "assistant" and m.get("tool_calls"):
+                oai_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": m.get("content"),
+                        "tool_calls": [
+                            {
+                                "id": tc.id,
+                                "type": "function",
+                                "function": {"name": tc.name, "arguments": json.dumps(tc.arguments)},
+                            }
+                            for tc in m["tool_calls"]
+                        ],
+                    }
+                )
+            elif m["role"] == "tool":
+                oai_messages.append({"role": "tool", "tool_call_id": m["tool_call_id"], "content": m["content"]})
+            else:
+                oai_messages.append({"role": m["role"], "content": m["content"]})
+
+        response = self._client.post(
+            "/chat/completions",
+            json={
+                "model": self.model,
+                "messages": oai_messages,
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {"name": t.name, "description": t.description, "parameters": t.input_schema},
+                    }
+                    for t in tools
+                ],
+            },
+        )
+        response.raise_for_status()
+        message = response.json()["choices"][0]["message"]
+        # Unlike Ollama, OpenAI's tool_calls arguments arrive as a JSON string,
+        # not an already-parsed object — needs explicit decoding.
+        tool_calls = [
+            ToolCall(id=tc["id"], name=tc["function"]["name"], arguments=json.loads(tc["function"]["arguments"]))
+            for tc in (message.get("tool_calls") or [])
+        ]
+        return AssistantTurn(tool_calls=tool_calls, text=message.get("content"))

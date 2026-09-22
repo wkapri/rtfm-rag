@@ -4,7 +4,14 @@ from collections.abc import Iterator
 import httpx
 
 from ragapp.config import settings
-from ragapp.llm.base import SYSTEM_PROMPT, build_user_content
+from ragapp.llm.base import (
+    SYSTEM_PROMPT,
+    AssistantTurn,
+    Message,
+    ToolCall,
+    ToolSpec,
+    build_user_content,
+)
 
 
 class OllamaProvider:
@@ -48,3 +55,60 @@ class OllamaProvider:
                     yield delta
                 if data.get("done"):
                     break
+
+    def complete_with_tools(
+        self, messages: list[Message], tools: list[ToolSpec], system_prompt: str
+    ) -> AssistantTurn:
+        ollama_messages = [{"role": "system", "content": system_prompt}]
+        for m in messages:
+            if m["role"] == "assistant" and m.get("tool_calls"):
+                ollama_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": m.get("content") or "",
+                        "tool_calls": [
+                            {"function": {"name": tc.name, "arguments": tc.arguments}}
+                            for tc in m["tool_calls"]
+                        ],
+                    }
+                )
+            elif m["role"] == "tool":
+                ollama_messages.append({"role": "tool", "content": m["content"]})
+            else:
+                ollama_messages.append({"role": m["role"], "content": m["content"]})
+
+        response = self._client.post(
+            "/api/chat",
+            json={
+                "model": self.model,
+                "messages": ollama_messages,
+                "stream": False,
+                "keep_alive": settings.ollama_keep_alive,
+                "options": {"num_ctx": settings.ollama_chat_num_ctx},
+                "tools": [_tool_to_ollama(t) for t in tools],
+            },
+        )
+        response.raise_for_status()
+        message = response.json()["message"]
+        # Ollama's tool_calls arguments already arrive as a parsed object, not
+        # a JSON string (unlike OpenAI's wire format) — no json.loads needed.
+        tool_calls = [
+            ToolCall(
+                id=tc.get("id") or f"call_{i}",
+                name=tc["function"]["name"],
+                arguments=tc["function"]["arguments"],
+            )
+            for i, tc in enumerate(message.get("tool_calls") or [])
+        ]
+        return AssistantTurn(tool_calls=tool_calls, text=message.get("content") or None)
+
+
+def _tool_to_ollama(tool: ToolSpec) -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": tool.input_schema,
+        },
+    }

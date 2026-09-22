@@ -18,7 +18,11 @@ changing `ingestion/`, `retrieval/`, or `llm/`: those modules have a consumer ou
 this repo, even though nothing here imports rtfm-hub back. Two things already built
 because of that: `VectorStore.search()` takes an optional `document_ids` filter, and
 the chat LLM is a pluggable `LLMProvider` (`llm/factory.py`'s `create_llm_client()`)
-rather than an Ollama-specific class — see the Stack table below.
+rather than an Ollama-specific class — see the Stack table below. `LLMProvider` also
+has a `complete_with_tools()` method (implemented by all three providers) for
+tool-calling agent loops — added for rtfm-hub's identify/discovery agents, not used
+by anything in this repo's own RAG chat path, which stays on the streaming
+`chat_stream()`.
 
 ## Stack
 
